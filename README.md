@@ -21,6 +21,8 @@
 
 **PlanWizz** (SEC-TimeTable) is an advanced and intuitive scheduling system designed to make academic timetable generation effortless. By parsing raw PDF enrollment data and applying advanced CSP algorithms, it ensures zero time clashes while resp;cting both strict requirements and soft preferences.
 
+📄 Demo Enrollment : https://drive.google.com/drive/folders/1VT12qITTInFJmps7ug3HAilQCmZY83rE
+
 ## ✨ Key Features
 
 - 📄 **Smart PDF Parsing**: Automatically extracts course information, available slots, and faculty details from structured PDF files.
