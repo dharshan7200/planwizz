@@ -1,0 +1,184 @@
+PlanWizz - Technical Architecture and Interview Answers
+
+==================================================
+1. Basic Architecture
+==================================================
+
+Explain the architecture of PlanWizz.
+PlanWizz is built on a modern, decoupled client-server architecture. The frontend is built with React (Vite) and Tailwind CSS, responsible for rendering the UI, collecting user constraints (leave preferences, faculty preferences), and handling PDF uploads. The backend is a Spring Boot application (with a legacy FastAPI version) that processes the PDF, extracts the data, and runs a Constraint Satisfaction Problem (CSP) solver engine to generate clash-free timetables. The backend exposes REST APIs consumed by the frontend.
+
+Why did you use React?
+React was chosen for the frontend because it allows building a dynamic, component-based user interface. Timetable rendering requires complex state management (selecting specific courses, handling drag-and-drop or preference changes, displaying calendar grids), which React handles efficiently with its Virtual DOM.
+
+Why did you use Spring Boot?
+Spring Boot provides a robust, highly scalable, and strongly-typed environment using Java. Given the heavy computational nature of the CSP backtracking algorithm, Java's performance, multithreading capabilities, and rich ecosystem (such as PDFbox or iText for PDF parsing) make it an excellent choice for an enterprise-grade backend.
+
+Why did you use FastAPI along with Spring Boot?
+FastAPI was initially used as the legacy backend because Python has excellent, easy-to-use libraries for data extraction (like pdfplumber) and rapid prototyping for algorithmic logic. As the system evolved and required higher throughput and stricter typing, the core logic was migrated to Spring Boot, which is now the default active backend.
+
+Why didn't you build everything using Spring Boot?
+Initially, Python (FastAPI) was preferred for its superior text-processing libraries and quick iteration speed. However, as the project matured, the team realized the performance and enterprise scalability benefits of Spring Boot, leading to a dual-backend structure where Spring Boot is now the primary engine.
+
+How does React communicate with your backend?
+React communicates with the backend via RESTful HTTP requests using standard fetch API or Axios. It sends multipart form data (for the PDF upload) and JSON payloads (for user constraints) to backend endpoints.
+
+What APIs have you created?
+Common APIs include:
+1. `POST /upload` - To upload the enrollment PDF.
+2. `GET /courses` - To retrieve the parsed list of subjects and available faculty.
+3. `POST /generate-timetable` - To submit user constraints (leave days, faculty preferences) and trigger the CSP solver, returning a JSON array representing the timetable.
+
+Explain the complete request flow from frontend to backend.
+1. User uploads a PDF and selects preferences on the React frontend.
+2. React sends a POST request with the PDF and a JSON payload of constraints to the Spring Boot backend.
+3. The backend receives the file, passes it to the PDF Parsing Service, which extracts courses, slots, and faculty using regex.
+4. The parsed data, along with user constraints, is passed to the CSP Engine.
+5. The CSP engine uses backtracking with MRV to find a clash-free schedule.
+6. Once found, the backend serializes the schedule into JSON and returns a 200 OK HTTP response.
+7. React processes the JSON and visually renders the timetable grid.
+
+Where does the timetable generation actually happen?
+The timetable generation happens entirely on the backend side, specifically within the CSP solver service component.
+
+Why did you separate the services?
+Separating the frontend from the backend (Decoupling) ensures that the heavy computation of the CSP algorithm does not block or freeze the user interface. It also allows the backend and frontend to be scaled independently, and makes it easier to swap out technologies (e.g., migrating from FastAPI to Spring Boot).
+
+==================================================
+2. PDF Processing
+==================================================
+
+How do you extract timetable information from a PDF?
+We read the raw text from the PDF using Java libraries (or pdfplumber in Python) and then apply Regular Expressions (Regex) to parse out the structured data like course codes, faculty names, and available time slots.
+
+What happens if the PDF format changes?
+If the PDF format changes (e.g., column shifts or structural changes by the university), the regex patterns will likely fail to match the data, leading to empty or partial extraction. The parsing logic is highly dependent on the specific template of the PDF.
+
+How do you identify subjects, faculty, rooms and timings?
+We identify these entities by looking for specific text patterns using regex. For example, course codes might follow a pattern like `[A-Z]{3}[0-9]{4}`, faculty might be separated by specific delimiters, and timings are matched using standard time formats (e.g., `HH:MM - HH:MM`).
+
+How do you handle malformed PDF data?
+The parser includes error handling that catches exceptions when required fields cannot be found. If a specific line cannot be parsed, it is either skipped (if non-critical) or the system throws an extraction error, prompting the user to upload a valid file.
+
+What happens if the uploaded PDF contains incomplete information?
+The backend returns an HTTP 400 Bad Request with a clear error message specifying that the PDF is missing required data, preventing the CSP solver from running with insufficient constraints.
+
+Why did you use regex?
+Regex is fast, lightweight, and effective for extracting text that follows a predictable, highly structured format, which is typical for auto-generated university enrollment PDFs.
+
+What are the limitations of regex-based extraction?
+Regex is brittle. It cannot understand the semantic layout of a document (like tables or overlapping columns). A single extra space, a changed delimiter, or a slight format shift by the university will break the extraction.
+
+How would you improve your PDF extraction system?
+I would move away from pure regex and use a more robust table-extraction tool like Tabula (Java) or Camelot (Python). Additionally, integrating an LLM (Large Language Model) or an OCR solution could help intelligently identify fields even if the layout changes.
+
+==================================================
+3. Timetable Algorithm
+==================================================
+
+How does your timetable generation algorithm work?
+It models the timetable as a Constraint Satisfaction Problem (CSP). It attempts to assign a time slot and a faculty member to every requested course without violating any hard constraints (no time clashes, honoring leave days). It uses Backtracking to explore the search space.
+
+Why did you choose backtracking?
+Backtracking is ideal for CSPs. It systematically tries to build a schedule, and the moment it detects that a partial schedule violates a constraint (e.g., a clash), it "backtracks" (undoes the last assignment) and tries a different path, avoiding brute-forcing invalid schedules.
+
+What is a constraint satisfaction problem?
+A CSP is a mathematical problem defined by a set of variables, a domain of possible values for each variable, and a set of constraints that restrict which combinations of values are valid. The goal is to find an assignment for all variables that satisfies all constraints.
+
+What are the variables in your CSP?
+The variables are the specific courses/subjects the student needs to take.
+
+What are the constraints?
+Hard constraints: No two courses can be scheduled at the same time for the same student. Courses cannot be scheduled on a user's specified leave day.
+Soft constraints: Try to assign the user's preferred faculty to a course if available.
+
+What is MRV?
+MRV stands for Minimum Remaining Values. It is a heuristic used in CSPs to decide which variable to assign next.
+
+Why did you use MRV?
+MRV significantly speeds up the backtracking process by choosing the most restricted variable (the course with the fewest available time slots) first. This helps the algorithm fail faster if a path is invalid, pruning the search tree early and improving performance.
+
+What happens when there is no valid timetable?
+If the backtracking algorithm exhausts all possibilities without finding a valid assignment, it returns an empty result, and the backend sends an error to the frontend indicating that no clash-free timetable is possible with the given constraints.
+
+How do you handle conflicting faculty preferences?
+Faculty preferences are treated as "soft constraints." The algorithm will first try to find a valid slot with the preferred faculty. If that leads to a clash with another required course, it will backtrack and fall back to a non-preferred faculty to ensure a valid overall schedule.
+
+How do you handle a preferred faculty who is unavailable?
+If the preferred faculty's slots clash with other courses, the algorithm simply drops the preference for that specific course and selects another available faculty member to satisfy the hard constraint (no clash).
+
+How do you prevent two classes from being scheduled at the same time?
+The algorithm maintains a data structure representing the student's weekly calendar. Before assigning a course to a slot, it checks if the slot is already occupied. If it is, the assignment is rejected.
+
+How do you prevent faculty conflicts?
+Since the system generates a timetable for a *single student* based on pre-defined university slots (which are already conflict-free for the faculty), faculty conflicts are implicitly handled by the university's data.
+
+How do you handle room conflicts?
+Similar to faculty conflicts, the PDF data already contains valid, university-approved slots. As long as we pick an offered slot, the room is guaranteed to be available.
+
+What is the worst-case complexity of your backtracking approach?
+The worst-case time complexity is exponential, O(D^N), where N is the number of courses and D is the maximum number of available slots per course.
+
+How did you improve the performance?
+By implementing MRV (Minimum Remaining Values) and Forward Checking. These heuristics prune large branches of the search tree early, bringing the average real-world performance down to a fraction of a second.
+
+Why not use a greedy algorithm?
+A greedy algorithm makes locally optimal choices at each step but cannot backtrack. It would likely get stuck and fail to find a valid timetable if early assignments block the only available slots for later courses.
+
+Why not use a genetic algorithm?
+Genetic algorithms are great for optimization but are probabilistic and not guaranteed to find a strict valid solution quickly. Backtracking guarantees finding a perfectly valid schedule if one exists, which is required here.
+
+Why not use machine learning for timetable generation?
+ML models (like neural networks) struggle with strict hard constraints. They might generate a schedule that is 99% correct, but a 1% error (a time clash) renders a timetable completely useless. Symbolic algorithms like CSP are better suited for strict constraint logic.
+
+==================================================
+4. Real-World Scenario
+==================================================
+
+Suppose 1,000 students simultaneously request timetable generation. What happens?
+In a synchronous architecture, 1,000 CPU-intensive CSP calculations would run simultaneously, likely exhausting the server's thread pool and CPU resources, causing massive latency spikes or server crashes (OutOfMemory or 503 errors).
+
+How would you scale the backend?
+I would scale horizontally by deploying multiple instances of the backend behind a Load Balancer. I would also move the heavy CSP computation to asynchronous background workers.
+
+Would you use synchronous or asynchronous processing?
+I would shift to asynchronous processing. The API would return a `202 Accepted` with a `job_id`. The frontend would then poll or use WebSockets to get the result once the background worker finishes.
+
+Would you introduce a queue?
+Yes, a message queue like RabbitMQ or Kafka is essential. The API would drop the calculation request into the queue, and a pool of worker nodes would consume messages at a controlled rate, preventing server overload.
+
+Where could Redis help?
+Redis would be used for caching. Many students in the same branch upload the same PDF format and have similar constraints. Caching the parsed PDF data and even caching identical timetable results using the constraint payload as a hash key would drastically reduce CPU usage.
+
+How would you prevent duplicate requests?
+I would implement idempotency keys on the frontend or use a rate limiter (e.g., Redis-based token bucket) to prevent a user from spamming the "Generate" button.
+
+How would you handle a server failure during timetable generation?
+With a message queue, the job would remain unacknowledged if a worker node crashes. Once the timeout is reached, the queue would re-queue the task to another healthy worker, ensuring fault tolerance.
+
+How would you monitor the system?
+I would use Prometheus to collect metrics (CPU, Memory, Request rate) and Grafana for visualization. For application logs and error tracking, I'd use the ELK stack (Elasticsearch, Logstash, Kibana) or Sentry.
+
+How would you measure API latency?
+By implementing an interceptor or middleware in Spring Boot that logs the start and end time of every HTTP request. These metrics would be exposed via Spring Boot Actuator to Prometheus.
+
+==================================================
+5. Your Actual Project Usage
+==================================================
+
+How many users are using the system?
+(Assuming typical student project usage during course registration): During the enrollment period, the system handles hundreds of concurrent students from the university looking to optimize their schedules.
+
+How did you know your system was working correctly?
+I verified it by cross-checking the generated schedules against the university's manual scheduling rules and by creating edge-case mock PDFs (e.g., highly constrained schedules) to ensure the CSP solver either resolved them correctly or properly returned an impossible state.
+
+What was the biggest production issue?
+The biggest issue was PDF format variations. The university slightly changed the layout of the enrollment PDF mid-semester, which broke the regex parser. This required an immediate hotfix to update the extraction patterns.
+
+Did you receive user feedback?
+Yes, students loved the clash-free guarantee, but many requested the ability to "lock" a specific course to a specific slot and let the algorithm fill in the rest.
+
+What change did you make based on user feedback?
+We introduced the concept of "Soft Constraints" for faculty preferences and allowed users to specify exact leave days they wanted to keep free, giving them more control over the generated output.
+
+How did you test the system before deployment?
+We wrote unit tests for the regex parsers using various historical PDF formats. We also wrote integration tests for the CSP solver to ensure it could handle heavy load (stress testing) and accurately resolve known complex scheduling scenarios without throwing exceptions.

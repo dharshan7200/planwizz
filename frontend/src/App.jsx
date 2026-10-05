@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Linkedin, User, X } from 'lucide-react';
+import { Layers, Linkedin, User, X, AlertCircle } from 'lucide-react';
 import logoImage from './assets/planwizz_banner.png';
 import UploadZone from './components/UploadZone.jsx';
 import CourseSelector from './components/CourseSelector.jsx';

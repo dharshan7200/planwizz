@@ -9,7 +9,7 @@
   </p>
 
   <p>
-    <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">/
+    <img src="https://img.shields.io/badge/Backend-Spring%20Boot-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot">
     <img src="https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
     <img src="https://img.shields.io/badge/Deployment-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white" alt="Render">
   </p>
@@ -35,8 +35,7 @@
 
 The repository is modular and split into two core environments:
 
-- 📂 `Springboot/`: Spring Boot 3 + Java 17 application containing all PDF parsing logic and the CSP timetabling engine. (Default/Active backend).
-- 📂 `backend/`: Legacy FastAPI application containing all PDF parsing logic and the CSP timetabling engine.
+- 📂 `Springboot/`: Spring Boot 3 + Java 17 application containing all PDF parsing logic and the CSP timetabling engine.
 - 📂 `frontend/`: React + Vite web application containing the user interface.
 
 ## 🚦 Getting Started
@@ -89,7 +88,7 @@ This project is fully configured for automated deployment securely on [Render](h
    - Connect this GitHub repository.
 3. **Auto-Configuration**:
    - Render automatically detects the `render.yaml` file in the root directory.
-   - It will spin up two services: `planwiz-backend` (FastAPI) and `planwiz-frontend` (React static site).
+   - It will spin up two services: `planwiz-backend` (Spring Boot) and `planwiz-frontend` (React static site).
 4. **Deploy**: Click **Apply** to complete the deployment.
 
 *(The frontend automatically detects the deployed backend URL via the `VITE_API_URL` environment variable).*
